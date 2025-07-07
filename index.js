@@ -1,41 +1,40 @@
-// index.js
-const { makeWASocket, useMultiFileAuthState, delay } = require('@whiskeysockets/baileys');
+require('dotenv').config();
+const { makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
+const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 
+// Session Configuration
+const SESSION_FOLDER = 'session_data';
+
 async function startBot() {
-    // 1. Setup session storage
-    const { state, saveCreds } = await useMultiFileAuthState('session_data');
+    // 1. Initialize session
+    const { state, saveCreds } = await useMultiFileAuthState(SESSION_FOLDER);
 
     // 2. Create WhatsApp connection
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true,
-        browser: ['MyBot', 'Safari', '1.0.0']
+        printQRInTerminal: false, // We'll handle QR display ourselves
+        browser: ['WhatsApp Bot', 'Chrome', '3.0'],
+        logger: { level: 'warn' } // Reduce console spam
     });
 
     // 3. Handle connection events
     sock.ev.on('connection.update', (update) => {
         const { connection, qr } = update;
-        
-        // Display QR code
+
+        // Display beautiful QR code
         if (qr) {
-            console.log('\n╔════════════════════════════════╗');
-            console.log('║   SCAN THIS QR WITH YOUR PHONE  ║');
-            console.log('║                                ║');
-            console.log('║ 1. Open WhatsApp               ║');
-            console.log('║ 2. Tap ⋮ > Linked Devices      ║');
-            console.log('║ 3. Tap "Link a Device"         ║');
-            console.log('╚════════════════════════════════╝\n');
+            displayQR(qr);
         }
 
         // When connected
         if (connection === 'open') {
-            console.log('✅ Bot connected to WhatsApp!');
+            console.log('\n\x1b[32m✅ Bot successfully connected to WhatsApp!\x1b[0m');
             sendWelcomeMessage(sock);
         }
     });
 
-    // 4. Save credentials when updated
+    // 4. Save session credentials
     sock.ev.on('creds.update', saveCreds);
 
     // 5. Handle incoming messages
@@ -46,35 +45,74 @@ async function startBot() {
         const text = msg.message.conversation || '';
         const sender = msg.key.remoteJid;
 
-        // Basic commands
-        if (text === '!ping') {
+        // Command handler
+        if (text.startsWith('!')) {
+            await handleCommand(sock, sender, text.toLowerCase());
+        }
+    });
+}
+
+// Display QR Code with border
+function displayQR(qr) {
+    console.clear();
+    console.log('\x1b[36m╔══════════════════════════════════════════╗');
+    console.log('║                                              ║');
+    console.log('║          \x1b[1mWHATSAPP BOT CONNECTION\x1b[0m\x1b[36m          ║');
+    console.log('║                                              ║');
+    console.log('║   • Open WhatsApp on your phone              ║');
+    console.log('║   • Tap ⋮ > Linked Devices                   ║');
+    console.log('║   • Tap "Link a Device"                      ║');
+    console.log('║                                              ║');
+    console.log('║   Scan within \x1b[31m2 minutes\x1b[36m:                      ║');
+    console.log('║                                              ║');
+
+    // Generate and display QR code
+    qrcode.generate(qr, { small: true }, (code) => {
+        code.split('\n').forEach(line => {
+            console.log(`║   ${line.padEnd(37)}   ║`);
+        });
+    });
+
+    console.log('║                                              ║');
+    console.log('╚══════════════════════════════════════════╝\x1b[0m');
+}
+
+// Handle bot commands
+async function handleCommand(sock, sender, cmd) {
+    switch(cmd) {
+        case '!ping':
             await sock.sendMessage(sender, { text: '🏓 Pong!' });
-        }
-        
-        if (text === '!send') {
-            // Send to specific number (replace with yours)
-            const targetNumber = "25574206718@s.whatsapp.net";
-            await sock.sendMessage(targetNumber, { 
-                text: 'Hello from your WhatsApp bot! 🚀' 
+            break;
+            
+        case '!info':
+            await sock.sendMessage(sender, { 
+                text: '🤖 *Bot Information*\n\n' +
+                      '• Version: 1.0\n' +
+                      '• Status: Active\n' +
+                      '• Uptime: ' + process.uptime().toFixed(0) + 's'
             });
-        }
-    });
+            break;
+            
+        default:
+            await sock.sendMessage(sender, { 
+                text: '📝 *Available Commands*\n\n' +
+                      '• !ping - Test bot response\n' +
+                      '• !info - Show bot status'
+            });
+    }
 }
 
-// Send welcome message when connected
+// Send welcome message
 async function sendWelcomeMessage(sock) {
-    await delay(3000);
-    const botJid = sock.user.id;
-    await sock.sendMessage(botJid, { 
-        text: '🤖 *Bot Activated!*\n\n' +
-              'Type:\n' +
-              '• !ping - Test bot\n' +
-              '• !send - Send test message' 
-    });
+    const welcomeMsg = '🚀 *Bot Activated!*\n\n' +
+                       'I am now connected to WhatsApp!\n' +
+                       'Type !help for commands.';
+    
+    await sock.sendMessage(sock.user.id, { text: welcomeMsg });
 }
 
-// Start the bot
+// Start the bot with error handling
 startBot().catch(err => {
-    console.error('❌ Bot Error:', err);
+    console.error('\x1b[31m❌ Bot Error:\x1b[0m', err);
     process.exit(1);
 });
