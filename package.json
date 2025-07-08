@@ -1,25 +1,13 @@
 {
-  "name": "whatsapp-md-bot",
+  "name": "whatsapp-bot",
   "version": "1.0.0",
-  "description": "Advanced WhatsApp Multi-Device Bot",
+  "description": "A basic WhatsApp bot using whatsapp-web.js",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
-  "keywords": [
-    "whatsapp",
-    "bot",
-    "baileys"
-  ],
-  "author": "Your Name",
-  "license": "MIT",
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.4.0",
-    "dotenv": "^16.3.1",
-    "qrcode-terminal": "^0.12.0"
-  },
-  "engines": {
-    "node": ">=18.x"
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.21.0"
   }
 }
